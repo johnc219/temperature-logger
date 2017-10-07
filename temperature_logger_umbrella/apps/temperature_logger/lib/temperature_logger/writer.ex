@@ -36,9 +36,6 @@ defmodule TemperatureLogger.Writer do
     file_path = Path.join([@dir_path, file_name])
     file = File.open! file_path, [:append, :utf8]
 
-    IO.puts "Opened file '#{file_name}' for appending..."
-    IO.puts "The file PID is '#{inspect file}'"
-
     state = {:opened, file}
     {:reply, :ok, state}
   end
@@ -50,7 +47,6 @@ defmodule TemperatureLogger.Writer do
   def handle_call({:close}, _from, {:opened, file}) do
     :ok = File.close file
 
-    IO.puts "Closed the file associated with PID '#{inspect file}'"
     state = {:closed}
     {:reply, :ok, state}
   end

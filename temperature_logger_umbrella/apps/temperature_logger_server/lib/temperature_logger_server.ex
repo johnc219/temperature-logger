@@ -53,6 +53,7 @@ defmodule TemperatureLoggerServer do
   end
 
   defp write_line(_socket, {:noop}) do
+    # When no command is entered.
   end
 
   defp write_line(socket, {:error, :unknown_command}) do
