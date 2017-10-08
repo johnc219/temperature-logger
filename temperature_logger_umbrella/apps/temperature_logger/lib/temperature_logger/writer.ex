@@ -45,10 +45,10 @@ defmodule TemperatureLogger.Writer do
   end
 
   def handle_call({:close}, _from, {:opened, file}) do
-    :ok = File.close file
+    msg = File.close file
 
     state = {:closed}
-    {:reply, :ok, state}
+    {:reply, msg, state}
   end
 
   def handle_call({:close}, _from, {:closed} = state) do
@@ -56,8 +56,8 @@ defmodule TemperatureLogger.Writer do
   end
 
   def handle_call({:puts, message}, _from, {:opened, file} = state) do
-    :ok = IO.puts(file, message)
-    {:reply, :ok, state}
+    msg = IO.puts(file, message)
+    {:reply, msg, state}
   end
 
   def handle_call({:puts, _message}, _from, {:closed} = state) do

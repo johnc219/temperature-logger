@@ -61,14 +61,21 @@ defmodule TemperatureLoggerServer do
     :gen_tcp.send(socket, "UNKNOWN COMMAND\r\n")
   end
 
-  defp write_line(socket, {:error, :port_closed}) do
-    # Known error. Write to the client.
-    :gen_tcp.send(socket, "PORT CURRENTLY CLOSED\r\n")
-  end
-
   defp write_line(socket, {:error, :enoent}) do
     # Known error. Write to the client.
     :gen_tcp.send(socket, "PORT NOT FOUND\r\n")
+  end
+
+  defp write_line(socket, {:error, :eagain}) do
+    :gen_tcp.send(socket, "PORT ALREADY OPEN\r\n")
+  end
+
+  defp write_line(socket, {:error, :eaccess}) do
+    :gen_tcp.send(socket, "PERMISSION DENIED\r\n")
+  end
+
+  defp write_line(socket, {:error, :ebadf}) do
+    :gen_tcp.send(socket, "PORT CLOSED\r\n")
   end
 
   defp write_line(_socket, {:error, :closed}) do

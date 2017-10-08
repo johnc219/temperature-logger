@@ -7,16 +7,10 @@ defmodule TemperatureLoggerServer.Command do
       iex> TemperatureLoggerServer.Command.parse "ENUMERATE"
       {:ok, {:enumerate}}
 
-      iex> TemperatureLoggerServer.Command.parse "OPEN path/to/device 9600\r\n"
-      {:ok, {:open, "path/to/device", 9600}}
-
-      iex> TemperatureLoggerServer.Command.parse "OPEN path/to/device\r\n"
-      {:ok, {:open, "path/to/device", 9600}}
-
-      iex> TemperatureLoggerServer.Command.parse "CLOSE\r\n"
-      {:ok, {:close}}
-
       iex> TemperatureLoggerServer.Command.parse "START\r\n"
+      {:ok, {:start}}
+
+      iex> TemperatureLoggerServer.Command.parse "start\r\n"
       {:ok, {:start}}
 
       iex> TemperatureLoggerServer.Command.parse "STOP\r\n"
@@ -27,15 +21,17 @@ defmodule TemperatureLoggerServer.Command do
 
   """
   def parse(line) do
-    case String.split(line) |> List.update_at(0, &(String.upcase(&1))) do
-      ["ENUMERATE"] -> {:ok, {:enumerate}}
-      ["OPEN", path, baud] -> {:ok, {:open, path, String.to_integer(baud)}}
-      ["OPEN", path] -> {:ok, {:open, path, 9600}}
-      ["CLOSE"] -> {:ok, {:close}}
-      ["START"] -> {:ok, {:start}}
-      ["STOP"] -> {:ok, {:stop}}
-      [] -> {:noop}
-      _ -> {:error, :unknown_command}
+    case String.split(line) |> List.update_at(0, &(String.downcase(&1))) do
+      ["enumerate"] ->
+        {:ok, {:enumerate}}
+      ["start"] ->
+        {:ok, {:start}}
+      ["stop"] ->
+        {:ok, {:stop}}
+      [] ->
+        {:noop}
+      _ ->
+        {:error, :unknown_command}
     end
   end
 
@@ -49,31 +45,17 @@ defmodule TemperatureLoggerServer.Command do
     {:ok, inspect(ports) <> "\r\n"}
   end
 
-  def run({:open, path, baud}) do
-    case TemperatureLogger.Listener.open(listener_pid(), path, baud) do
-      :ok -> {:ok, "OK\r\n"}
-      {:error, err} -> {:error, err}
-    end
-  end
-
-  def run({:close}) do
-    case TemperatureLogger.Listener.close(listener_pid()) do
-      :ok -> {:ok, "OK\r\n"}
-      {:error, err} -> {:error, err}
-    end
-  end
-
   def run({:start}) do
-    case TemperatureLogger.Listener.start(listener_pid()) do
+    case TemperatureLogger.Listener.start_logging(listener_pid()) do
       :ok -> {:ok, "OK\r\n"}
-      :closed -> {:error, :port_closed}
+      {:error, err} -> {:error, err}
     end
   end
 
   def run({:stop}) do
-    case TemperatureLogger.Listener.stop(listener_pid()) do
+    case TemperatureLogger.Listener.stop_logging(listener_pid()) do
       :ok -> {:ok, "OK\r\n"}
-      :closed -> {:error, :port_closed}
+      {:error, err} -> {:error, err}
     end
   end
 

@@ -5,6 +5,8 @@ defmodule TemperatureLogger.Listener do
   alias TemperatureLogger.Writer
 
   @uart_pid UART
+  @product_id 62514
+  @baud 9600
   @on "O"
   @off "F"
 
@@ -18,27 +20,19 @@ defmodule TemperatureLogger.Listener do
     GenServer.call(server, {:enumerate})
   end
 
-  def open(server, port, baud \\ 9600) do
-    GenServer.call(server, {:open, port, baud})
+  def start_logging(server) do
+    GenServer.call(server, {:start_logging})
   end
 
-  def close(server) do
-    GenServer.call(server, {:close})
-  end
-
-  def start(server) do
-    GenServer.call(server, {:start})
-  end
-
-  def stop(server) do
-    GenServer.call(server, {:stop})
+  def stop_logging(server) do
+    GenServer.call(server, {:stop_logging})
   end
 
   ## Server Callbacks
 
   def init(:ok) do
     {:ok, _pid} = UART.start_link(name: @uart_pid)
-    state = {:closed}
+    state = %{}
     {:ok, state}
   end
 
@@ -47,47 +41,32 @@ defmodule TemperatureLogger.Listener do
     {:reply, {:ok, ports}, state}
   end
 
-  def handle_call({:open, port, baud}, _from, state) do
-    :ok = Writer.open(writer_server())
-    msg = UART.open(uart_pid(),
-                    port,
-                    speed: baud,
-                    active: true,
-                    framing: UART.Framing.Line, separator: "\n")
+  def handle_call({:start_logging}, _from, state) do
+    options = [
+      speed: @baud,
+      active: true,
+      framing: UART.Framing.Line,
+      separator: "\n"
+    ]
 
-    case msg do
-      :ok -> {:reply, :ok, {:opened, port}}
-      {:error, err} -> {:reply, {:error, err}, state}
-    end
+    msg =
+      with :ok <- UART.open(uart_pid(), find_port(), options),
+           :ok <- UART.flush(uart_pid()),
+           :ok <- UART.write(uart_pid(), @on),
+           :ok <- UART.drain(uart_pid()),
+           do: Writer.open(writer_server())
+
+    {:reply, msg, state}
   end
 
-  def handle_call({:close}, _from, _state) do
-    :ok = UART.close(uart_pid())
-    :ok = Writer.close(writer_server())
+  def handle_call({:stop_logging}, _from, state) do
+    msg =
+      with :ok <- Writer.close(writer_server()),
+           :ok <- UART.write(uart_pid(), @off),
+           :ok <- UART.drain(uart_pid()),
+           do: UART.close(uart_pid())
 
-    state = {:closed}
-    {:reply, :ok, state}
-  end
-
-  def handle_call({:start}, _from, {:opened, _port} = state) do
-    # Flush rx/tx buffers
-    :ok = UART.flush(uart_pid())
-    :ok = UART.write(uart_pid(), @on)
-
-    {:reply, :ok, state}
-  end
-
-  def handle_call({:start}, _from, {:closed} = state) do
-    {:reply, :closed, state}
-  end
-
-  def handle_call({:stop}, _from, {:opened, _port} = state) do
-    :ok = UART.write(uart_pid(), @off)
-    {:reply, :ok, state}
-  end
-
-  def handle_call({:stop}, _from, {:closed} = state) do
-    {:reply, :closed, state}
+    {:reply, msg, state}
   end
 
   def handle_info({:nerves_uart, _port, {:error, error}}, state) do
@@ -95,7 +74,7 @@ defmodule TemperatureLogger.Listener do
     {:noreply, state}
   end
 
-  def handle_info({:nerves_uart, port, message}, {:opened, port} = state) do
+  def handle_info({:nerves_uart, _port, message}, state) do
     log(message)
     {:noreply, state}
   end
@@ -118,5 +97,15 @@ defmodule TemperatureLogger.Listener do
 
   defp writer_server do
     Writer
+  end
+
+  defp find_port do
+    results = UART.enumerate
+      |> Enum.find(fn({_k, v}) -> Map.get(v, :product_id) == @product_id end)
+
+    case results do
+      {path, _details} -> path
+      nil -> nil
+    end
   end
 end
