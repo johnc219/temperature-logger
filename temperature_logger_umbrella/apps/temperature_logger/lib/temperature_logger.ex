@@ -64,7 +64,8 @@ defmodule TemperatureLogger do
       with :ok <- Writer.close(writer_server()),
            :ok <- UART.write(uart_pid(), @off),
            :ok <- UART.drain(uart_pid()),
-           do: UART.close(uart_pid())
+           :ok <- UART.close(uart_pid()),
+           do: UART.configure(uart_pid(), framing: UART.Framing.None)
 
     {:reply, msg, state}
   end
