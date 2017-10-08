@@ -20,7 +20,7 @@ defmodule TemperatureLogger.Mixfile do
   def application do
     # Specify extra applications you'll use from Erlang/Elixir
     [extra_applications: [:logger],
-     mod: {TemperatureLogger, []}]
+     mod: {TemperatureLogger.Application, []}]
   end
 
   # Dependencies can be Hex packages:

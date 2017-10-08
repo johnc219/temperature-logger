@@ -8,7 +8,7 @@ defmodule TemperatureLogger.Supervisor do
   def init(:ok) do
     children = [
       {TemperatureLogger.Writer, name: TemperatureLogger.Writer},
-      {TemperatureLogger.Listener, name: TemperatureLogger.Listener}
+      {TemperatureLogger, name: TemperatureLogger}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

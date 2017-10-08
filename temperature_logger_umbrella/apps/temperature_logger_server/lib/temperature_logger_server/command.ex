@@ -41,25 +41,25 @@ defmodule TemperatureLoggerServer.Command do
   def run(command)
 
   def run({:enumerate}) do
-    {:ok, ports} = TemperatureLogger.Listener.enumerate(listener_pid())
+    {:ok, ports} = TemperatureLogger.enumerate(listener_pid())
     {:ok, inspect(ports) <> "\r\n"}
   end
 
   def run({:start}) do
-    case TemperatureLogger.Listener.start_logging(listener_pid()) do
+    case TemperatureLogger.start_logging(listener_pid()) do
       :ok -> {:ok, "OK\r\n"}
       {:error, err} -> {:error, err}
     end
   end
 
   def run({:stop}) do
-    case TemperatureLogger.Listener.stop_logging(listener_pid()) do
+    case TemperatureLogger.stop_logging(listener_pid()) do
       :ok -> {:ok, "OK\r\n"}
       {:error, err} -> {:error, err}
     end
   end
 
   defp listener_pid do
-    TemperatureLogger.Listener
+    TemperatureLogger
   end
 end
