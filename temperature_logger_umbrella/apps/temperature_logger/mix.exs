@@ -33,6 +33,6 @@ defmodule TemperatureLogger.Mixfile do
   #
   # Type "mix help deps" for more examples and options
   defp deps do
-    [{:nerves_uart, "~> 0.1"}]
+    [{:nerves_uart, git: "https://github.com/nerves-project/nerves_uart"}]
   end
 end

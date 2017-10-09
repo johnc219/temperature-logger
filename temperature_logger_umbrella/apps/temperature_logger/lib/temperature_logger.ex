@@ -45,8 +45,7 @@ defmodule TemperatureLogger do
     options = [
       speed: @baud,
       active: true,
-      framing: UART.Framing.Line,
-      separator: "\n"
+      framing: {UART.Framing.Line, separator: "\n"}
     ]
 
     msg =
@@ -64,8 +63,7 @@ defmodule TemperatureLogger do
       with :ok <- Writer.close(writer_server()),
            :ok <- UART.write(uart_pid(), @off),
            :ok <- UART.drain(uart_pid()),
-           :ok <- UART.close(uart_pid()),
-           do: UART.configure(uart_pid(), framing: UART.Framing.None)
+           do: UART.close(uart_pid())
 
     {:reply, msg, state}
   end
