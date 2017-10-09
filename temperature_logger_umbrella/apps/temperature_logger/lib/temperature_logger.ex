@@ -5,10 +5,12 @@ defmodule TemperatureLogger do
   alias TemperatureLogger.Writer
 
   @uart_pid UART
-  @product_id 62514
+  @vendor_id 1105 # Texas Instruments
+  @product_id 62514 # MSP430G2 Rev.1.4
   @baud 9600
   @on "O"
   @off "F"
+  @debug false
 
   ## Client API
 
@@ -69,7 +71,9 @@ defmodule TemperatureLogger do
   end
 
   def handle_info({:nerves_uart, _port, {:error, error}}, state) do
-    IO.warn "Received error message from :nerves_uart: '#{error}'"
+    if @debug do
+      IO.warn "Received error message from :nerves_uart: '#{error}'"
+    end
     {:noreply, state}
   end
 
@@ -100,7 +104,10 @@ defmodule TemperatureLogger do
 
   defp find_port do
     results = UART.enumerate
-      |> Enum.find(fn({_k, v}) -> Map.get(v, :product_id) == @product_id end)
+      |> Enum.find(fn({_k, v}) ->
+        Map.get(v, :vendor_id) == @vendor_id
+        Map.get(v, :product_id) == @product_id
+      end)
 
     case results do
       {path, _details} -> path
