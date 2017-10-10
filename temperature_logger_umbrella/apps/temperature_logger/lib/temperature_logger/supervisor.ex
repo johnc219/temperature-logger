@@ -7,7 +7,6 @@ defmodule TemperatureLogger.Supervisor do
 
   def init(:ok) do
     children = [
-      {TemperatureLogger.Writer, name: TemperatureLogger.Writer},
       {TemperatureLogger, name: TemperatureLogger}
     ]
 
