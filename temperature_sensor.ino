@@ -23,7 +23,7 @@ byte incomingByte;
 boolean transmitting;
 
 // Convert 10-bit ADC values to mV.
-// Ref. is ~3.3V. May need to determine experimentally. 
+// Ref. is ~3.3V. May need to determine experimentally.
 double calculateMilliVolts(unsigned int reading) {
   return (reading / 1023.0) * refVoltage;
 }
@@ -62,14 +62,15 @@ void loop() {
   }
 
   if (transmitting) {
-    reading = analogRead(inputSensor);
     digitalWrite(led, HIGH);
+
+    reading = analogRead(inputSensor);
     milliVolts = calculateMilliVolts(reading);
     degreesCelcius = calculateCelcius(milliVolts);
     Serial.println(degreesCelcius, decimalPlaces);
+
     delay(100);
     digitalWrite(led, LOW);
     delay(sampleRate - 100);
   }
 }
-
