@@ -18,17 +18,21 @@ defmodule TemperatureLoggerServer do
       active: false,
       reuseaddr: true
     ]
+
     {:ok, socket} = :gen_tcp.listen(port, options)
 
-    Logger.info "Accepting connections on port #{port}"
+    Logger.info("Accepting connections on port #{port}")
     loop_acceptor(socket)
   end
 
   defp loop_acceptor(socket) do
     {:ok, client} = :gen_tcp.accept(socket)
-    {:ok, pid} = Task.Supervisor.start_child(TemperatureLoggerServer.TaskSupervisor, fn ->
-      serve(client)
-    end)
+
+    {:ok, pid} =
+      Task.Supervisor.start_child(TemperatureLoggerServer.TaskSupervisor, fn ->
+        serve(client)
+      end)
+
     :ok = :gen_tcp.controlling_process(client, pid)
 
     loop_acceptor(socket)

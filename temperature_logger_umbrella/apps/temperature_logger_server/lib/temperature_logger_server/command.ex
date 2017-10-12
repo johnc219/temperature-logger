@@ -26,17 +26,22 @@ defmodule TemperatureLoggerServer.Command do
 
   """
   def parse(line) do
-    case String.split(line) |> List.update_at(0, &(String.downcase(&1))) do
+    case String.split(line) |> List.update_at(0, &String.downcase(&1)) do
       ["enumerate"] ->
         {:ok, {:enumerate}}
+
       ["start", log_path] ->
         {:ok, {:start, log_path}}
+
       ["start"] ->
         {:ok, {:start}}
+
       ["stop"] ->
         {:ok, {:stop}}
+
       [] ->
         {:noop}
+
       _ ->
         {:error, :unknown_command}
     end

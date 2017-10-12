@@ -7,8 +7,10 @@ defmodule TemperatureLogger do
 
   @uart_pid UART
   @default_log_path Path.join([".", "log", "temperature_logger.log"])
-  @vendor_id 1105 # Texas Instruments
-  @product_id 62514 # MSP430G2 Rev.1.4
+  # Texas Instruments
+  @vendor_id 1105
+  # MSP430G2 Rev.1.4
+  @product_id 62514
   @baud 9600
   @on "O"
   @off "F"
@@ -68,6 +70,7 @@ defmodule TemperatureLogger do
         :ok ->
           new_state = Map.put(state, port, log_path)
           {:reply, msg, new_state}
+
         _ ->
           {:reply, msg, state}
       end
@@ -88,6 +91,7 @@ defmodule TemperatureLogger do
         :ok ->
           new_state = Map.delete(state, port)
           {:reply, msg, new_state}
+
         _ ->
           {:reply, msg, state}
       end
@@ -98,18 +102,19 @@ defmodule TemperatureLogger do
 
   def handle_info({:nerves_uart, _port, {:error, error}}, state) do
     if @debug do
-      IO.warn "Received error message from :nerves_uart: '#{error}'"
+      IO.warn("Received error message from :nerves_uart: '#{error}'")
     end
+
     {:noreply, state}
   end
 
   def handle_info({:nerves_uart, _port, message}, state) do
-    Logger.info message
+    Logger.info(message)
     {:noreply, state}
   end
 
   def handle_info(msg, state) do
-    IO.puts "Received message: #{inspect msg}"
+    IO.puts("Received message: #{inspect(msg)}")
     {:noreply, state}
   end
 
@@ -118,11 +123,11 @@ defmodule TemperatureLogger do
   end
 
   defp default_port do
-    results = UART.enumerate
-      |> Enum.find(fn({_k, v}) ->
-        Map.get(v, :vendor_id) == @vendor_id &&
-        Map.get(v, :product_id) == @product_id
-      end)
+    results =
+      UART.enumerate()
+      |> Enum.find(fn {_k, v} ->
+           Map.get(v, :vendor_id) == @vendor_id && Map.get(v, :product_id) == @product_id
+         end)
 
     case results do
       {path, _details} -> path
@@ -131,14 +136,17 @@ defmodule TemperatureLogger do
   end
 
   defp add_backend(path) do
-    Logger.add_backend {LoggerFileBackend, path}
-    Logger.configure_backend {LoggerFileBackend, path},
+    Logger.add_backend({LoggerFileBackend, path})
+
+    Logger.configure_backend(
+      {LoggerFileBackend, path},
       path: path,
       level: :info,
       metadata_filter: [application: :temperature_logger]
+    )
   end
 
   defp remove_backend(path) do
-    Logger.remove_backend {LoggerFileBackend, path}
+    Logger.remove_backend({LoggerFileBackend, path})
   end
 end
