@@ -7,11 +7,15 @@ defmodule TemperatureLogger do
 
   @uart_pid UART
   @default_log_path Path.join([".", "log", "temperature_logger.log"])
+  # 10 seconds
+  @default_sample_rate 10
   # Texas Instruments
   @vendor_id 1105
   # MSP430G2 Rev.1.4
   @product_id 62514
   @baud 9600
+  # 5 seconds
+  @period 5
   @on "O"
   @off "F"
   @debug false
@@ -55,6 +59,7 @@ defmodule TemperatureLogger do
   def handle_call({:start_logging, opts}, _from, state) do
     port = Keyword.get(opts, :port, default_port())
     log_path = Keyword.get(opts, :log_path, @default_log_path) |> Path.expand()
+    sample_rate = Keyword.get(opts, :sample_rate, @default_sample_rate)
 
     if Map.has_key?(state, port) do
       {:reply, {:error, :eagain}, state}
@@ -68,7 +73,17 @@ defmodule TemperatureLogger do
 
       case msg do
         :ok ->
-          new_state = Map.put(state, port, log_path)
+          {:ok, upper_limit} = calculate_upper_limit(sample_rate)
+          settings = %{
+            log_path: log_path,
+            sample_rate: sample_rate,
+            lower_limit: 0,
+            upper_limit: upper_limit,
+            counter: 0,
+            direction: -1
+          }
+
+          new_state = Map.put(state, port, settings)
           {:reply, msg, new_state}
 
         _ ->
@@ -85,7 +100,7 @@ defmodule TemperatureLogger do
         with :ok <- UART.write(uart_pid(), @off),
              :ok <- UART.drain(uart_pid()),
              :ok <- UART.close(uart_pid()),
-             do: remove_backend(Map.get(state, port))
+             do: remove_backend(Map.get(state, port).log_path)
 
       case msg do
         :ok ->
@@ -108,9 +123,28 @@ defmodule TemperatureLogger do
     {:noreply, state}
   end
 
-  def handle_info({:nerves_uart, _port, message}, state) do
-    Logger.info(message)
+  def handle_info({:nerves_uart, port, message}, state) when !Map.has_key?(state, port) do
     {:noreply, state}
+  end
+
+  def handle_info({:nerves_uart, port, message}, state) when Map.has_key?(state, port) do
+    settings = Map.get(state, port)
+    %{counter: counter, upper_limit: upper_limit} = settings
+
+    if counter == upper_limit do
+      Logger.info(message)
+
+      new_direction = -1 * direction
+      new_counter = counter + new_direction
+      new_settings = %{settings | direction: new_direction, counter: new_counter}
+      new_state = Map.put(state, port, new_settings)
+      {:noreply, new_state}
+    else
+      new_counter = counter + direction
+      new_settings = %{settings | counter: new_counter}
+      new_state = Map.put(state, port, new_settings)
+      {:noreply, new_state}
+    end
   end
 
   def handle_info(msg, state) do
@@ -148,5 +182,18 @@ defmodule TemperatureLogger do
 
   defp remove_backend(path) do
     Logger.remove_backend({LoggerFileBackend, path})
+  end
+
+  defp calculate_upper_limit(sample_rate) when sample_rate < @period do
+    {:error, :sample_rate_less_than_period}
+  end
+
+  defp calculate_upper_limit(sample_rate) when rem(sample_rate, @period) != 0 do
+    {:error, :sample_rate_not_multiple_of_period}
+  end
+
+  defp calculate_upper_limit(sample_rate) do
+    upper_limit = div(sample_rate, @period)
+    {:ok, upper_limit}
   end
 end
