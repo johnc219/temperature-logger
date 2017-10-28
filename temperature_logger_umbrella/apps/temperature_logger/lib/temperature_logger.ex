@@ -18,7 +18,6 @@ defmodule TemperatureLogger do
   @period 5
   @on "O"
   @off "F"
-  @debug false
   @open_options [
     speed: @baud,
     active: true,
@@ -46,7 +45,7 @@ defmodule TemperatureLogger do
   ## Server Callbacks
 
   def init(:ok) do
-    {:ok, _pid} = UART.start_link(name: @uart_pid)
+    {:ok, _pid} = UART.start_link(name: uart_pid())
     state = %{}
     {:ok, state}
   end
@@ -58,36 +57,20 @@ defmodule TemperatureLogger do
 
   def handle_call({:start_logging, opts}, _from, state) do
     port = Keyword.get(opts, :port, default_port())
-    log_path = Keyword.get(opts, :log_path, @default_log_path) |> Path.expand()
-    sample_rate = Keyword.get(opts, :sample_rate, @default_sample_rate)
 
     if Map.has_key?(state, port) do
-      {:reply, {:error, :eagain}, state}
+      {:reply, {:error, :eagain}, state} # @todo return custom error atom
     else
-      msg =
-        with :ok <- UART.open(uart_pid(), port, @open_options),
-             :ok <- UART.flush(uart_pid()),
-             :ok <- UART.write(uart_pid(), @on),
-             :ok <- UART.drain(uart_pid()),
-             do: add_backend(log_path)
+      log_path = Path.expand(Keyword.get(opts, :log_path, @default_log_path))
+      sample_rate = Keyword.get(opts, :sample_rate, @default_sample_rate)
 
-      case msg do
-        :ok ->
-          {:ok, upper_limit} = calculate_upper_limit(sample_rate)
-          settings = %{
-            log_path: log_path,
-            sample_rate: sample_rate,
-            lower_limit: 0,
-            upper_limit: upper_limit,
-            counter: 0,
-            direction: -1
-          }
-
+      case set_up(port, log_path, sample_rate) do
+        {:ok, settings} ->
           new_state = Map.put(state, port, settings)
-          {:reply, msg, new_state}
+          {:reply, :ok, new_state}
 
-        _ ->
-          {:reply, msg, state}
+        {:error, error} ->
+          {:reply, {:error, error}, state}
       end
     end
   end
@@ -96,55 +79,44 @@ defmodule TemperatureLogger do
     port = Keyword.get(opts, :port, default_port())
 
     if Map.has_key?(state, port) do
-      msg =
-        with :ok <- UART.write(uart_pid(), @off),
-             :ok <- UART.drain(uart_pid()),
-             :ok <- UART.close(uart_pid()),
-             do: remove_backend(Map.get(state, port).log_path)
-
-      case msg do
+      case teardown(Map.get(state, port)) do
         :ok ->
           new_state = Map.delete(state, port)
           {:reply, msg, new_state}
 
-        _ ->
-          {:reply, msg, state}
+        {:error, error} ->
+          {:reply, {:error, error}, state}
       end
     else
-      {:reply, {:error, :ebadf}, state}
+      {:reply, {:error, :ebadf}, state} # @todo return different error atom
     end
   end
 
   def handle_info({:nerves_uart, _port, {:error, error}}, state) do
-    if @debug do
-      IO.warn("Received error message from :nerves_uart: '#{error}'")
-    end
+    IO.warn("Received error message from :nerves_uart: '#{error}'")
+    {:noreply, state}
+  end
+
+  def handle_info({:nerves_uart, port, message}, state)
+    when !Map.has_key?(state, port) do
 
     {:noreply, state}
   end
 
-  def handle_info({:nerves_uart, port, message}, state) when !Map.has_key?(state, port) do
-    {:noreply, state}
-  end
+  def handle_info({:nerves_uart, port, message}, state)
+    when Map.has_key?(state, port) do
 
-  def handle_info({:nerves_uart, port, message}, state) when Map.has_key?(state, port) do
-    settings = Map.get(state, port)
-    %{counter: counter, upper_limit: upper_limit} = settings
+    {point_type, new_settings} = next_settings(Map.get(state, port))
 
-    if counter == upper_limit do
-      Logger.info(message)
+    case point_type do
+      :crest, :trough ->
+        Logger.info(message)
 
-      new_direction = -1 * direction
-      new_counter = counter + new_direction
-      new_settings = %{settings | direction: new_direction, counter: new_counter}
-      new_state = Map.put(state, port, new_settings)
-      {:noreply, new_state}
-    else
-      new_counter = counter + direction
-      new_settings = %{settings | counter: new_counter}
-      new_state = Map.put(state, port, new_settings)
-      {:noreply, new_state}
+      _ ->
     end
+
+    new_state = Map.put(state, port, new_settings)
+    {:noreply, new_state}
   end
 
   def handle_info(msg, state) do
@@ -157,11 +129,11 @@ defmodule TemperatureLogger do
   end
 
   defp default_port do
-    results =
-      UART.enumerate()
-      |> Enum.find(fn {_k, v} ->
-           Map.get(v, :vendor_id) == @vendor_id && Map.get(v, :product_id) == @product_id
-         end)
+    ports = UART.enumerate()
+    results = Enum.find(ports, fn {_k, v} ->
+      Map.get(v, :vendor_id) == @vendor_id and
+      Map.get(v, :product_id) == @product_id
+    end)
 
     case results do
       {path, _details} -> path
@@ -184,6 +156,24 @@ defmodule TemperatureLogger do
     Logger.remove_backend({LoggerFileBackend, path})
   end
 
+  defp generate_settings(log_path, sample_rate) do
+    case calculate_upper_limit(sample_rate) do
+      {:ok, upper_limit} ->
+        settings = %{
+          log_path: log_path,
+          sample_rate: sample_rate,
+          lower_limit: 0,
+          upper_limit: upper_limit,
+          count: 0,
+          direction: -1
+        }
+        {:ok, settings}
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
   defp calculate_upper_limit(sample_rate) when sample_rate < @period do
     {:error, :sample_rate_less_than_period}
   end
@@ -195,5 +185,56 @@ defmodule TemperatureLogger do
   defp calculate_upper_limit(sample_rate) do
     upper_limit = div(sample_rate, @period)
     {:ok, upper_limit}
+  end
+
+  defp next_settings(settings) do
+    %{
+      count: count,
+      upper_limit: upper_limit,
+      lower_limit: lower_limit
+    } = settings
+
+    case count do
+      ^upper_limit ->
+        {:crest, next_settings(settings, :inflection_point)}
+
+      ^lower_limit ->
+        {:trough, next_settings(settings, :inflection_point)}
+
+      _ ->
+        {:regular, next_settings(settings, :regular)}
+    end
+  end
+
+  defp next_settings(settings, :inflection_point) do
+    %{direction: direction, count: count} = settings
+    new_direction = -1 * direction
+    new_count = count + new_direction
+
+    %{settings | direction: new_direction, count: new_count}
+  end
+
+  defp next_settings(settings, :regular) do
+    %{direction: direction, count: count} = settings
+    new_count = count + direction
+
+    %{settings | count: new_count}
+  end
+
+  defp set_up(port, log_path, sample_rate) do
+    with {:ok, settings} <- generate_settings(log_path, sample_rate)
+         :ok <- UART.open(uart_pid(), port, @open_options),
+         :ok <- UART.flush(uart_pid()),
+         :ok <- UART.write(uart_pid(), @on),
+         :ok <- UART.drain(uart_pid()),
+         :ok <- add_backend(log_path),
+         do: {:ok, settings}
+  end
+
+  defp teardown(settings) do
+    with :ok <- UART.write(uart_pid(), @off),
+         :ok <- UART.drain(uart_pid()),
+         :ok <- UART.close(uart_pid()),
+         do: remove_backend(settings.log_path)
   end
 end
