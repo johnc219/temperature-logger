@@ -69,12 +69,16 @@ telnet 127.0.0.1 4040
 > start 20 ~/logs/temperature.log
 ```
 
-#### TCP Client API
+### TCP Client API
 
 `enumerate`
+
 Prints out the available ports.
 
+---
+
 `start <period> <path>`
+
 Starts logging temperature data.
 
 Option | Description | Default
@@ -82,5 +86,8 @@ Option | Description | Default
 `period` | How often a sample should be recorded, in seconds (minimum is 1) | 1
 `log_path` | The path to the file that is written to | `/temperature_logger_umbrella/log/temperature_logger.log`
 
+---
+
 `stop`
+
 Stops logging temperature data.
