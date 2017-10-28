@@ -68,7 +68,6 @@ defmodule TemperatureLogger do
     port = Keyword.get(opts, :port, default_port())
 
     if Map.has_key?(state, port) do
-      # @todo return custom error atom
       {:reply, {:error, :eagain}, state}
     else
       log_path = Path.expand(Keyword.get(opts, :log_path, @default_log_path))
@@ -98,7 +97,6 @@ defmodule TemperatureLogger do
           {:reply, {:error, error}, state}
       end
     else
-      # @todo return different error atom
       {:reply, {:error, :ebadf}, state}
     end
   end

@@ -57,16 +57,14 @@ defmodule TemperatureLoggerServer do
   end
 
   defp write_line(_socket, {:noop}) do
-    # When no command is entered.
+    # No-op when no command is entered.
   end
 
   defp write_line(socket, {:error, :unknown_command}) do
-    # Known error. Write to the client.
     :gen_tcp.send(socket, "UNKNOWN COMMAND\r\n")
   end
 
   defp write_line(socket, {:error, :enoent}) do
-    # Known error. Write to the client.
     :gen_tcp.send(socket, "PORT NOT FOUND\r\n")
   end
 
@@ -80,6 +78,14 @@ defmodule TemperatureLoggerServer do
 
   defp write_line(socket, {:error, :ebadf}) do
     :gen_tcp.send(socket, "PORT CLOSED\r\n")
+  end
+
+  defp write_line(socket, {:error, :period_less_than_min_period}) do
+    :gen_tcp.send(socket, "PERIOD CANNOT BE LESS THAN THE MINIMUM PERIOD\r\n")
+  end
+
+  defp write_line(socket, {:error, :period_not_multiple_of_min_period}) do
+    :gen_tcp.send(socket, "PERIOD MUST BE A MULTIPLE OF THE MINIMUM PERIOD\r\n")
   end
 
   defp write_line(_socket, {:error, :closed}) do
