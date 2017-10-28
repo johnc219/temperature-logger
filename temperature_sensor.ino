@@ -10,7 +10,7 @@
 const byte inputSensor = 6;
 const byte led = 14;
 const int baudRate = 9600; // bps
-const int sampleRate = 1000; // ms
+const int period = 1000; // ms
 const byte decimalPlaces = 2;
 const byte on = 'O';
 const byte off = 'F';
@@ -18,7 +18,7 @@ const int refVoltage = 3300; // mV
 
 unsigned int reading;
 double milliVolts;
-double degreesCelcius;
+double degreesCelsius;
 byte incomingByte;
 boolean transmitting;
 
@@ -28,9 +28,9 @@ double calculateMilliVolts(unsigned int reading) {
   return (reading / 1023.0) * refVoltage;
 }
 
-// Convert milliVolts to degrees Celcius.
+// Convert milliVolts to degrees Celsius.
 // TMP36 linear function: Vo = 10d + 500
-double calculateCelcius(double milliVolts) {
+double calculateCelsius(double milliVolts) {
   return (milliVolts - 500) / 10.0;
 }
 
@@ -66,11 +66,11 @@ void loop() {
 
     reading = analogRead(inputSensor);
     milliVolts = calculateMilliVolts(reading);
-    degreesCelcius = calculateCelcius(milliVolts);
-    Serial.println(degreesCelcius, decimalPlaces);
+    degreesCelsius = calculateCelsius(milliVolts);
+    Serial.println(degreesCelsius, decimalPlaces);
 
     delay(100);
     digitalWrite(led, LOW);
-    delay(sampleRate - 100);
+    delay(period - 100);
   }
 }
