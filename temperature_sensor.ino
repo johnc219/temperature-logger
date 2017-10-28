@@ -10,11 +10,11 @@
 const byte inputSensor = 6;
 const byte led = 14;
 const int baudRate = 9600; // bps
-const int sampleRate = 5000; // ms
+const int sampleRate = 1000; // ms
 const byte decimalPlaces = 2;
 const byte on = 'O';
 const byte off = 'F';
-const int refVoltage = 3560; // mV
+const int refVoltage = 3300; // mV
 
 unsigned int reading;
 double milliVolts;
