@@ -22,17 +22,15 @@ important to minimize the effects of radio frequency interference
 (RFI) on these devices.
 
 ![Breadboard](/temperature_logger_bb.png?raw=true "Breadboard")
-_Breadboard setup_
 
 ![Schematic](/temperature_logger_schem.png?raw=true "Schematic")
-_Schematic_
 
 ##### Firmware
 1. [Install Energia](http://energia.nu/download/)
-1. Ensure the MSP430G2 drivers are [installed](http://energia.nu/pin-maps/guide_msp430g2launchpad/)
+1. Ensure the `MSP430G2` drivers are [installed](http://energia.nu/pin-maps/guide_msp430g2launchpad/)
 1. Open `temperature_sensor.ino`
 1. Connect the Launchpad via USB
-1. Select MSP430g2553 under Tools > Board, and select the correct serial port under Tools > Serial Port. If you don’t see a selectable serial port, you likely have a driver issue.
+1. Select `MSP430g2553` under `Tools > Board`, and select the correct serial port under `Tools > Serial Port`. If you don’t see a selectable serial port, you likely have a driver issue.
 1. Upload `temperature_sensor.ino` to the `MSP430G2553`
 
 ##### Software
@@ -79,9 +77,9 @@ Prints out the available ports.
 **`start <period> <path>`**
 Starts logging temperature data.
 
-| Option | Description | Default |
-|--------------------------------|
-| `period` | How often a sample should be recorded, in seconds (minimum is 1). | 1 |
-| `log_path` | The path to the file that is written to. | `/temperature_logger_umbrella/log/temperature_logger.log` |
+| Option     | Description                                                      | Default |
+| --------------------------------------------------------------------------------------- |
+| `period`   | How often a sample should be recorded, in seconds (minimum is 1) | 1       |
+| `log_path` | The path to the file that is written to | `/temperature_logger_umbrella/log/temperature_logger.log` |
 
 **`stop`** Stops logging temperature data.
