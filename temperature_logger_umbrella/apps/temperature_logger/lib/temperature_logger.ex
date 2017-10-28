@@ -6,18 +6,27 @@ defmodule TemperatureLogger do
   alias Nerves.UART
 
   @uart_pid UART
+
   @default_log_path Path.join([".", "log", "temperature_logger.log"])
+
   # 10 seconds
-  @default_sample_rate 10
+  @default_period 10
+
   # Texas Instruments
   @vendor_id 1105
+
   # MSP430G2 Rev.1.4
   @product_id 62514
+
   @baud 9600
-  # 5 seconds
-  @period 5
+
+  # 1 seconds
+  @min_period 1
+
   @on "O"
+
   @off "F"
+
   @open_options [
     speed: @baud,
     active: true,
@@ -63,9 +72,9 @@ defmodule TemperatureLogger do
       {:reply, {:error, :eagain}, state}
     else
       log_path = Path.expand(Keyword.get(opts, :log_path, @default_log_path))
-      sample_rate = Keyword.get(opts, :sample_rate, @default_sample_rate)
+      period = Keyword.get(opts, :period, @default_period)
 
-      case set_up(port, log_path, sample_rate) do
+      case set_up(port, log_path, period) do
         {:ok, settings} ->
           new_state = Map.put(state, port, settings)
           {:reply, :ok, new_state}
@@ -140,6 +149,23 @@ defmodule TemperatureLogger do
     end
   end
 
+  defp set_up(port, log_path, period) do
+    with {:ok, settings} <- generate_settings(log_path, period),
+         :ok <- UART.open(uart_pid(), port, @open_options),
+         :ok <- UART.flush(uart_pid()),
+         :ok <- UART.write(uart_pid(), @on),
+         :ok <- UART.drain(uart_pid()),
+         :ok <- add_backend(log_path),
+         do: {:ok, settings}
+  end
+
+  defp teardown(settings) do
+    with :ok <- UART.write(uart_pid(), @off),
+         :ok <- UART.drain(uart_pid()),
+         :ok <- UART.close(uart_pid()),
+         do: remove_backend(settings.log_path)
+  end
+
   defp add_backend(path) do
     Logger.add_backend({LoggerFileBackend, path})
 
@@ -155,12 +181,12 @@ defmodule TemperatureLogger do
     Logger.remove_backend({LoggerFileBackend, path})
   end
 
-  defp generate_settings(log_path, sample_rate) do
-    case calculate_upper_limit(sample_rate) do
+  defp generate_settings(log_path, period) do
+    case calculate_upper_limit(period) do
       {:ok, upper_limit} ->
         settings = %{
           log_path: log_path,
-          sample_rate: sample_rate,
+          period: period,
           lower_limit: 0,
           upper_limit: upper_limit,
           count: 0,
@@ -174,16 +200,16 @@ defmodule TemperatureLogger do
     end
   end
 
-  defp calculate_upper_limit(sample_rate) when sample_rate < @period do
-    {:error, :sample_rate_less_than_period}
+  defp calculate_upper_limit(period) when period < @min_period do
+    {:error, :period_less_than_min_period}
   end
 
-  defp calculate_upper_limit(sample_rate) when rem(sample_rate, @period) != 0 do
-    {:error, :sample_rate_not_multiple_of_period}
+  defp calculate_upper_limit(period) when rem(period, @min_period) != 0 do
+    {:error, :period_not_multiple_of_min_period}
   end
 
-  defp calculate_upper_limit(sample_rate) do
-    upper_limit = div(sample_rate, @period)
+  defp calculate_upper_limit(period) do
+    upper_limit = div(period, @min_period)
     {:ok, upper_limit}
   end
 
@@ -219,22 +245,5 @@ defmodule TemperatureLogger do
     new_count = count + direction
 
     %{settings | count: new_count}
-  end
-
-  defp set_up(port, log_path, sample_rate) do
-    with {:ok, settings} <- generate_settings(log_path, sample_rate),
-         :ok <- UART.open(uart_pid(), port, @open_options),
-         :ok <- UART.flush(uart_pid()),
-         :ok <- UART.write(uart_pid(), @on),
-         :ok <- UART.drain(uart_pid()),
-         :ok <- add_backend(log_path),
-         do: {:ok, settings}
-  end
-
-  defp teardown(settings) do
-    with :ok <- UART.write(uart_pid(), @off),
-         :ok <- UART.drain(uart_pid()),
-         :ok <- UART.close(uart_pid()),
-         do: remove_backend(settings.log_path)
   end
 end
