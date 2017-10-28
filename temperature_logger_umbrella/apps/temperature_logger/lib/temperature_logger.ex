@@ -59,7 +59,8 @@ defmodule TemperatureLogger do
     port = Keyword.get(opts, :port, default_port())
 
     if Map.has_key?(state, port) do
-      {:reply, {:error, :eagain}, state} # @todo return custom error atom
+      # @todo return custom error atom
+      {:reply, {:error, :eagain}, state}
     else
       log_path = Path.expand(Keyword.get(opts, :log_path, @default_log_path))
       sample_rate = Keyword.get(opts, :sample_rate, @default_sample_rate)
@@ -82,13 +83,14 @@ defmodule TemperatureLogger do
       case teardown(Map.get(state, port)) do
         :ok ->
           new_state = Map.delete(state, port)
-          {:reply, msg, new_state}
+          {:reply, :ok, new_state}
 
         {:error, error} ->
           {:reply, {:error, error}, state}
       end
     else
-      {:reply, {:error, :ebadf}, state} # @todo return different error atom
+      # @todo return different error atom
+      {:reply, {:error, :ebadf}, state}
     end
   end
 
@@ -97,26 +99,19 @@ defmodule TemperatureLogger do
     {:noreply, state}
   end
 
-  def handle_info({:nerves_uart, port, message}, state)
-    when !Map.has_key?(state, port) do
+  def handle_info({:nerves_uart, port, message}, state) do
+    if Map.has_key?(state, port) do
+      {point_type, new_settings} = next_settings(Map.get(state, port))
 
-    {:noreply, state}
-  end
-
-  def handle_info({:nerves_uart, port, message}, state)
-    when Map.has_key?(state, port) do
-
-    {point_type, new_settings} = next_settings(Map.get(state, port))
-
-    case point_type do
-      :crest, :trough ->
+      if point_type == :crest or point_type == :trough do
         Logger.info(message)
+      end
 
-      _ ->
+      new_state = Map.put(state, port, new_settings)
+      {:noreply, new_state}
+    else
+      {:noreply, state}
     end
-
-    new_state = Map.put(state, port, new_settings)
-    {:noreply, new_state}
   end
 
   def handle_info(msg, state) do
@@ -130,10 +125,14 @@ defmodule TemperatureLogger do
 
   defp default_port do
     ports = UART.enumerate()
-    results = Enum.find(ports, fn {_k, v} ->
-      Map.get(v, :vendor_id) == @vendor_id and
-      Map.get(v, :product_id) == @product_id
-    end)
+
+    results =
+      Enum.find(ports, fn {_k, v} ->
+        vendor_id = Map.get(v, :vendor_id)
+        product_id = Map.get(v, :product_id)
+
+        vendor_id == @vendor_id and product_id == @product_id
+      end)
 
     case results do
       {path, _details} -> path
@@ -167,6 +166,7 @@ defmodule TemperatureLogger do
           count: 0,
           direction: -1
         }
+
         {:ok, settings}
 
       {:error, error} ->
@@ -222,7 +222,7 @@ defmodule TemperatureLogger do
   end
 
   defp set_up(port, log_path, sample_rate) do
-    with {:ok, settings} <- generate_settings(log_path, sample_rate)
+    with {:ok, settings} <- generate_settings(log_path, sample_rate),
          :ok <- UART.open(uart_pid(), port, @open_options),
          :ok <- UART.flush(uart_pid()),
          :ok <- UART.write(uart_pid(), @on),
