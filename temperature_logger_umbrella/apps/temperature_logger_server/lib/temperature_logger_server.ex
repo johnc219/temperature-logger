@@ -77,7 +77,11 @@ defmodule TemperatureLoggerServer do
   end
 
   defp write_line(socket, {:error, :ebadf}) do
-    :gen_tcp.send(socket, "PORT CLOSED\r\n")
+    :gen_tcp.send(socket, "PORT IS CLOSED\r\n")
+  end
+
+  defp write_line(socket, {:error, :period_must_be_integer}) do
+    :gen_tcp.send(socket, "PERIOD MUST BE AN INTEGER\r\n")
   end
 
   defp write_line(socket, {:error, :period_less_than_min_period}) do

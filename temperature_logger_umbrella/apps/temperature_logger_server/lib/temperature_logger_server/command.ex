@@ -34,10 +34,18 @@ defmodule TemperatureLoggerServer.Command do
         {:ok, {:enumerate}}
 
       ["start", period, log_path] ->
-        {:ok, {:start, [period: String.to_integer(period), log_path: log_path]}}
+        try do
+          {:ok, {:start, [period: String.to_integer(period), log_path: log_path]}}
+        rescue
+          ArgumentError -> {:error, :period_must_be_integer}
+        end
 
       ["start", period] ->
-        {:ok, {:start, [period: String.to_integer(period)]}}
+        try do
+          {:ok, {:start, [period: String.to_integer(period)]}}
+        rescue
+          ArgumentError -> {:error, :period_must_be_integer}
+        end
 
       ["start"] ->
         {:ok, {:start, []}}
