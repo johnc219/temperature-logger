@@ -1,5 +1,8 @@
 # temperature-logger
-Log temperature readings in degrees Celsius.
+Log ambient temperature readings in degrees Celsius.
+
+Motivation:
+The ideal temperature while sleeping is between [60 and 67](https://sleep.org/articles/temperature-for-sleep/) degrees Fahrenheit. I am using this application to experimentally tune my heating systems (heater or thermostat settings) to the sweet spot. Of course, this application can be used for many other use cases where temperature logging is desired.
 
 ## Installation
 

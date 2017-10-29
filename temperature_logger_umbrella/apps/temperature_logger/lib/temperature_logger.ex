@@ -101,8 +101,17 @@ defmodule TemperatureLogger do
     end
   end
 
-  def handle_info({:nerves_uart, _port, {:error, error}}, state) do
-    IO.warn("Received error message from :nerves_uart: '#{error}'")
+  def handle_info({:nerves_uart, port, {:error, :einval}}, state) do
+    if Map.has_key?(state, port) do
+      remove_backend(Map.get(state, port).log_path)
+      new_state = Map.delete(state, port)
+      {:noreply, new_state}
+    else
+      {:noreply, state}
+    end
+  end
+
+  def handle_info({:nerves_uart, _port, {:error, _err}}, state) do
     {:noreply, state}
   end
 
