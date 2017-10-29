@@ -21,6 +21,12 @@ defmodule TemperatureLoggerServer.Command do
       iex> TemperatureLoggerServer.Command.parse "start 10 path/to/file\r\n"
       {:ok, {:start, [period: 10, log_path: "path/to/file"]}}
 
+      iex> TemperatureLoggerServer.Command.parse "start 10 'path/to/file'\r\n"
+      {:ok, {:start, [period: 10, log_path: "path/to/file"]}}
+
+      iex> TemperatureLoggerServer.Command.parse "start 10 \"path/to/file\"\r\n"
+      {:ok, {:start, [period: 10, log_path: "path/to/file"]}}
+
       iex> TemperatureLoggerServer.Command.parse "STOP\r\n"
       {:ok, {:stop}}
 
@@ -34,6 +40,11 @@ defmodule TemperatureLoggerServer.Command do
         {:ok, {:enumerate}}
 
       ["start", period, log_path] ->
+        log_path =
+          log_path
+          |> String.trim("\"")
+          |> String.trim("'")
+
         try do
           {:ok, {:start, [period: String.to_integer(period), log_path: log_path]}}
         rescue
@@ -68,7 +79,13 @@ defmodule TemperatureLoggerServer.Command do
 
   def run({:enumerate}) do
     {:ok, ports} = TemperatureLogger.enumerate(@temperature_logger_pid)
-    {:ok, inspect(ports) <> "\r\n"}
+
+    formatted =
+      Enum.map_join(ports, "\r\n", fn {port, metadata} ->
+        inspect(port) <> " => " <> inspect(metadata)
+      end)
+
+    {:ok, formatted <> "\r\n"}
   end
 
   def run({:start, opts}) do
