@@ -120,7 +120,8 @@ defmodule TemperatureLogger do
       {point_type, new_settings} = next_settings(Map.get(state, port))
 
       if point_type == :crest or point_type == :trough do
-        Logger.info(message)
+        message = Poison.Parser.parse(message)
+        Logger.info(Map.get(message, "celsius"))
       end
 
       new_state = Map.put(state, port, new_settings)
@@ -180,6 +181,7 @@ defmodule TemperatureLogger do
       {LoggerFileBackend, path},
       path: path,
       level: :info,
+      format: "\n$time, $message\n",
       metadata_filter: [application: :temperature_logger]
     )
   end

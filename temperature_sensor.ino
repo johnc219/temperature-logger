@@ -19,6 +19,7 @@ const int refVoltage = 3300; // mV
 unsigned int reading;
 double milliVolts;
 double degreesCelsius;
+char message [100];
 byte incomingByte;
 boolean transmitting;
 
@@ -32,6 +33,15 @@ double calculateMilliVolts(unsigned int reading) {
 // TMP36 linear function: Vo = 10d + 500
 double calculateCelsius(double milliVolts) {
   return (milliVolts - 500) / 10.0;
+}
+
+double calculateFahrenheit(double celsius) {
+  return (celsius * 1.8) + 32
+}
+
+// Sets C-string {message} with JSON-formatted temperature data
+int setMessage(char &message, double celsius, double fahrenheit) {
+  return sprintf(message, "{\"celsius\": %.2f, \"fahrenheit\": %.2f}", celsius, fahrenheit)
 }
 
 void setup() {
@@ -56,6 +66,7 @@ void loop() {
     if (incomingByte == on) {
       transmitting = true;
     }
+
     if (incomingByte == off) {
       transmitting = false;
     }
@@ -67,7 +78,9 @@ void loop() {
     reading = analogRead(inputSensor);
     milliVolts = calculateMilliVolts(reading);
     degreesCelsius = calculateCelsius(milliVolts);
-    Serial.println(degreesCelsius, decimalPlaces);
+    degreesFahrenheit = calculateFahrenheit(degreesCelsius);
+    setMessage(message, degreesCelsius, degreesFahrenheit)
+    Serial.println(message);
 
     delay(100);
     digitalWrite(led, LOW);
