@@ -10,38 +10,37 @@
 const byte inputSensor = 6;
 const byte led = 14;
 const int baudRate = 9600; // bps
-const int period = 1000; // ms
-const byte decimalPlaces = 2;
 const byte on = 'O';
 const byte off = 'F';
-const int refVoltage = 3300; // mV
 
 unsigned int reading;
-double milliVolts;
-double degreesCelsius;
-char message [100];
+String msg;
 byte incomingByte;
 boolean transmitting;
+int celsius;
 
-// Convert 10-bit ADC values to mV.
-// Ref. is ~3.3V. May need to determine experimentally.
-double calculateMilliVolts(unsigned int reading) {
-  return (reading / 1023.0) * refVoltage;
+String getMessage(int celsius) {
+  return String("{\"celsius\": ") + String(celsius) + "}";
 }
 
-// Convert milliVolts to degrees Celsius.
-// TMP36 linear function: Vo = 10d + 500
-double calculateCelsius(double milliVolts) {
-  return (milliVolts - 500) / 10.0;
-}
+// Convert 10-bit ADC values to celsius.
+int getCelsius(unsigned int reading) {
+  // Apply Horner's method to multiply by (357/1023) => (Vcc/ADC-resolution)
+  // Vcc experimentally measure as 3.57V.
+  // @see TMP36 datasheet Vout to Celsius linear equation
+  int value;
+  value = (value >> 1) + reading;
+  value = (value >> 2) + reading;
+  value = (value >> 2) + reading;
+  value = (value >> 2) + reading;
+  value = (value >> 3) + reading;
+  value = (value >> 1) + reading;
+  value = (value >> 2) + reading;
+  value = (value >> 2);
 
-double calculateFahrenheit(double celsius) {
-  return (celsius * 1.8) + 32
-}
+  value = value - 50;
 
-// Sets C-string {message} with JSON-formatted temperature data
-int setMessage(char &message, double celsius, double fahrenheit) {
-  return sprintf(message, "{\"celsius\": %.2f, \"fahrenheit\": %.2f}", celsius, fahrenheit)
+  return value;
 }
 
 void setup() {
@@ -65,25 +64,23 @@ void loop() {
 
     if (incomingByte == on) {
       transmitting = true;
+      Serial.flush();
     }
 
     if (incomingByte == off) {
       transmitting = false;
+      Serial.flush();
     }
   }
 
   if (transmitting) {
     digitalWrite(led, HIGH);
+    celsius = getCelsius(analogRead(inputSensor));
+    msg = getMessage(celsius);
+    Serial.println(msg);
 
-    reading = analogRead(inputSensor);
-    milliVolts = calculateMilliVolts(reading);
-    degreesCelsius = calculateCelsius(milliVolts);
-    degreesFahrenheit = calculateFahrenheit(degreesCelsius);
-    setMessage(message, degreesCelsius, degreesFahrenheit)
-    Serial.println(message);
-
-    delay(100);
+    delay(50);
     digitalWrite(led, LOW);
-    delay(period - 100);
+    delay(950);
   }
 }

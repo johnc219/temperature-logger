@@ -4,6 +4,7 @@ defmodule TemperatureLogger do
   require Logger
 
   alias Nerves.UART
+  alias Poison.Parser
 
   @uart_pid UART
 
@@ -120,8 +121,8 @@ defmodule TemperatureLogger do
       {point_type, new_settings} = next_settings(Map.get(state, port))
 
       if point_type == :crest or point_type == :trough do
-        message = Poison.Parser.parse(message)
-        Logger.info(Map.get(message, "celsius"))
+        with {:ok, data} <- Parser.parse(String.trim(message)),
+              do: Logger.info(Map.get(data, "celsius"))
       end
 
       new_state = Map.put(state, port, new_settings)
