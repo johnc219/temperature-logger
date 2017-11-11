@@ -8,7 +8,7 @@ defmodule TemperatureLogger do
 
   Additionally, the client can enumerate the UART ports available.
 
-  **Note:** Temperature readings are in degrees Celsius.
+  **Note:** Temperature readings are logged in degrees Celsius and Fahrenheit.
   """
 
   use GenServer
@@ -118,13 +118,13 @@ defmodule TemperatureLogger do
     {:noreply, state}
   end
 
-  def handle_info({:nerves_uart, port, message}, state) do
+  def handle_info({:nerves_uart, port, raw_message}, state) do
     if Map.has_key?(state, port) do
       {point_type, new_settings} = Settings.next(Map.get(state, port))
 
       if point_type == :crest or point_type == :trough do
-        with {:ok, data} <- Parser.parse(String.trim(message)),
-              do: Logger.info(Map.get(data, "celsius"))
+        with {:ok, data} <- Parser.parse(String.trim(raw_message)),
+              do: Logger.info(message_from_data(data))
       end
 
       new_state = Map.put(state, port, new_settings)
@@ -158,5 +158,12 @@ defmodule TemperatureLogger do
          :ok <- UART.drain(uart_pid()),
          :ok <- UART.close(uart_pid()),
          do: LoggerManager.remove_backend(settings.log_path)
+  end
+
+  defp message_from_data(data) do
+    Enum.join([
+      Map.get(data, "celsius"),
+      Map.get(data, "fahrenheit")
+    ], ", ")
   end
 end
