@@ -23,20 +23,31 @@ String getMessage(int celsius) {
   return String("{\"celsius\": ") + String(celsius) + "}";
 }
 
-// Convert 10-bit ADC values to celsius.
+// Converts 10-bit ADC values to degrees celsius.
+// Analog reference for ADC set to 2.5V for better precision and for
+// better portability; The exact Vcc values can vary accross chips.
+//
+// Derivation:
+//
+// Vo = n * (Vref / 1023.0)
+// c = (Vo - 500) / 10.0
+//
+// @see TMP36 datasheet Vout to Celsius linear equation
+//
+// The conversion uses Horner's method to multiply the ADC reading
+// by (250/1023).
 int getCelsius(unsigned int reading) {
-  // Apply Horner's method to multiply by (357/1023) => (Vcc/ADC-resolution)
-  // Vcc experimentally measure as 3.57V.
-  // @see TMP36 datasheet Vout to Celsius linear equation
   int value;
   value = (value >> 1) + reading;
-  value = (value >> 2) + reading;
-  value = (value >> 2) + reading;
-  value = (value >> 2) + reading;
-  value = (value >> 3) + reading;
   value = (value >> 1) + reading;
+  value = (value >> 1) + reading;
+  value = (value >> 4) + reading;
   value = (value >> 2) + reading;
-  value = (value >> 2);
+  value = (value >> 1) + reading;
+  value = (value >> 1) + reading;
+  value = (value >> 1) + reading;
+  value = (value >> 1) + reading;
+  value = (value >> 3);
 
   value = value - 50;
 
@@ -44,6 +55,7 @@ int getCelsius(unsigned int reading) {
 }
 
 void setup() {
+  analogReference(INTERNAL2V5);
   pinMode(inputSensor, INPUT);
   pinMode(led, OUTPUT);
 
