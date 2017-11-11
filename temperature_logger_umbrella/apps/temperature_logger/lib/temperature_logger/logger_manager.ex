@@ -1,4 +1,10 @@
 defmodule TemperatureLogger.LoggerManager do
+  @moduledoc """
+  Utility for adding and removing Logger backends for a particular log file
+  path.
+  """
+
+  @spec add_backend(String.t()) :: term()
   def add_backend(path) do
     Logger.add_backend({LoggerFileBackend, path})
 
@@ -11,6 +17,7 @@ defmodule TemperatureLogger.LoggerManager do
     )
   end
 
+  @spec remove_backend(String.t()) :: term()
   def remove_backend(path) do
     Logger.remove_backend({LoggerFileBackend, path})
   end

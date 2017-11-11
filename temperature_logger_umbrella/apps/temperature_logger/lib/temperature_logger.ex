@@ -1,4 +1,16 @@
 defmodule TemperatureLogger do
+  @moduledoc """
+  Client/Server implementation that allows the client to log temperature via
+  temperature-sensing hardware. The client can customize...
+  * the UART port.
+  * the frequency of readings.
+  * the destination log file.
+
+  Additionally, the client can enumerate the UART ports available.
+
+  **Note:** Temperature readings are in degrees Celsius.
+  """
+
   use GenServer
 
   require Logger
@@ -10,17 +22,11 @@ defmodule TemperatureLogger do
 
   @uart_pid UART
 
-  # Texas Instruments
-  @vendor_id 1105
-
-  # MSP430G2 Rev.1.4
-  @product_id 62514
-
   @on "O"
 
   @off "F"
 
-  @open_options [
+  @uart_open_options [
     speed: 9600,
     active: true,
     framing: {UART.Framing.Line, separator: "\n"}
@@ -28,18 +34,22 @@ defmodule TemperatureLogger do
 
   ## Client API
 
+  @spec start_link(keyword()) :: {:ok, pid()} | {:error, term()}
   def start_link(opts) do
     GenServer.start_link(__MODULE__, :ok, opts)
   end
 
+  @spec enumerate(pid()) :: map()
   def enumerate(server) do
     GenServer.call(server, {:enumerate})
   end
 
+  @spec start_logging(pid(), keyword()) :: :ok | {:error, term()}
   def start_logging(server, opts \\ []) do
     GenServer.call(server, {:start_logging, opts})
   end
 
+  @spec stop_logging(pid(), keyword()) :: :ok | {:error, term()}
   def stop_logging(server, opts \\ []) do
     GenServer.call(server, {:stop_logging, opts})
   end
@@ -58,7 +68,7 @@ defmodule TemperatureLogger do
   end
 
   def handle_call({:start_logging, opts}, _from, state) do
-    port = Keyword.get(opts, :port, default_port())
+    port = Keyword.get(opts, :port, Settings.default_port)
 
     if Map.has_key?(state, port) do
       {:reply, {:error, :eagain}, state}
@@ -78,7 +88,7 @@ defmodule TemperatureLogger do
   end
 
   def handle_call({:stop_logging, opts}, _from, state) do
-    port = Keyword.get(opts, :port, default_port())
+    port = Keyword.get(opts, :port, Settings.default_port)
 
     if Map.has_key?(state, port) do
       case teardown(Map.get(state, port)) do
@@ -133,26 +143,9 @@ defmodule TemperatureLogger do
     @uart_pid
   end
 
-  defp default_port do
-    ports = UART.enumerate()
-
-    results =
-      Enum.find(ports, fn {_k, v} ->
-        vendor_id = Map.get(v, :vendor_id)
-        product_id = Map.get(v, :product_id)
-
-        vendor_id == @vendor_id and product_id == @product_id
-      end)
-
-    case results do
-      {path, _details} -> path
-      nil -> nil
-    end
-  end
-
   defp set_up(port, log_path, period) do
     with {:ok, settings} <- Settings.generate(log_path, period),
-         :ok <- UART.open(uart_pid(), port, @open_options),
+         :ok <- UART.open(uart_pid(), port, @uart_open_options),
          :ok <- UART.flush(uart_pid()),
          :ok <- UART.write(uart_pid(), @on),
          :ok <- UART.drain(uart_pid()),
