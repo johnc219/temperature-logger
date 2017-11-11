@@ -5,13 +5,10 @@ defmodule TemperatureLogger do
 
   alias Nerves.UART
   alias Poison.Parser
+  alias TemperatureLogger.Settings
+  alias TemperatureLogger.LoggerManager
 
   @uart_pid UART
-
-  @default_log_path Path.join([".", "log", "temperature_logger.log"])
-
-  # 10 seconds
-  @default_period 10
 
   # Texas Instruments
   @vendor_id 1105
@@ -19,17 +16,12 @@ defmodule TemperatureLogger do
   # MSP430G2 Rev.1.4
   @product_id 62514
 
-  @baud 9600
-
-  # 1 seconds
-  @min_period 1
-
   @on "O"
 
   @off "F"
 
   @open_options [
-    speed: @baud,
+    speed: 9600,
     active: true,
     framing: {UART.Framing.Line, separator: "\n"}
   ]
@@ -71,8 +63,8 @@ defmodule TemperatureLogger do
     if Map.has_key?(state, port) do
       {:reply, {:error, :eagain}, state}
     else
-      log_path = Path.expand(Keyword.get(opts, :log_path, @default_log_path))
-      period = Keyword.get(opts, :period, @default_period)
+      log_path = Path.expand(Keyword.get(opts, :log_path, Settings.default_log_path))
+      period = Keyword.get(opts, :period, Settings.default_period)
 
       case set_up(port, log_path, period) do
         {:ok, settings} ->
@@ -104,7 +96,7 @@ defmodule TemperatureLogger do
 
   def handle_info({:nerves_uart, port, {:error, :einval}}, state) do
     if Map.has_key?(state, port) do
-      remove_backend(Map.get(state, port).log_path)
+      LoggerManager.remove_backend(Map.get(state, port).log_path)
       new_state = Map.delete(state, port)
       {:noreply, new_state}
     else
@@ -118,7 +110,7 @@ defmodule TemperatureLogger do
 
   def handle_info({:nerves_uart, port, message}, state) do
     if Map.has_key?(state, port) do
-      {point_type, new_settings} = next_settings(Map.get(state, port))
+      {point_type, new_settings} = Settings.next(Map.get(state, port))
 
       if point_type == :crest or point_type == :trough do
         with {:ok, data} <- Parser.parse(String.trim(message)),
@@ -159,12 +151,12 @@ defmodule TemperatureLogger do
   end
 
   defp set_up(port, log_path, period) do
-    with {:ok, settings} <- generate_settings(log_path, period),
+    with {:ok, settings} <- Settings.generate(log_path, period),
          :ok <- UART.open(uart_pid(), port, @open_options),
          :ok <- UART.flush(uart_pid()),
          :ok <- UART.write(uart_pid(), @on),
          :ok <- UART.drain(uart_pid()),
-         :ok <- add_backend(log_path),
+         :ok <- LoggerManager.add_backend(log_path),
          do: {:ok, settings}
   end
 
@@ -172,88 +164,6 @@ defmodule TemperatureLogger do
     with :ok <- UART.write(uart_pid(), @off),
          :ok <- UART.drain(uart_pid()),
          :ok <- UART.close(uart_pid()),
-         do: remove_backend(settings.log_path)
-  end
-
-  defp add_backend(path) do
-    Logger.add_backend({LoggerFileBackend, path})
-
-    Logger.configure_backend(
-      {LoggerFileBackend, path},
-      path: path,
-      level: :info,
-      format: "\n$time, $message\n",
-      metadata_filter: [application: :temperature_logger]
-    )
-  end
-
-  defp remove_backend(path) do
-    Logger.remove_backend({LoggerFileBackend, path})
-  end
-
-  defp generate_settings(log_path, period) do
-    case calculate_upper_limit(period) do
-      {:ok, upper_limit} ->
-        settings = %{
-          log_path: log_path,
-          period: period,
-          lower_limit: 0,
-          upper_limit: upper_limit,
-          count: 0,
-          direction: -1
-        }
-
-        {:ok, settings}
-
-      {:error, error} ->
-        {:error, error}
-    end
-  end
-
-  defp calculate_upper_limit(period) when period < @min_period do
-    {:error, :period_less_than_min_period}
-  end
-
-  defp calculate_upper_limit(period) when rem(period, @min_period) != 0 do
-    {:error, :period_not_multiple_of_min_period}
-  end
-
-  defp calculate_upper_limit(period) do
-    upper_limit = div(period, @min_period)
-    {:ok, upper_limit}
-  end
-
-  defp next_settings(settings) do
-    %{
-      count: count,
-      upper_limit: upper_limit,
-      lower_limit: lower_limit
-    } = settings
-
-    case count do
-      ^upper_limit ->
-        {:crest, next_settings(settings, :inflection_point)}
-
-      ^lower_limit ->
-        {:trough, next_settings(settings, :inflection_point)}
-
-      _ ->
-        {:regular, next_settings(settings, :regular)}
-    end
-  end
-
-  defp next_settings(settings, :inflection_point) do
-    %{direction: direction, count: count} = settings
-    new_direction = -1 * direction
-    new_count = count + new_direction
-
-    %{settings | direction: new_direction, count: new_count}
-  end
-
-  defp next_settings(settings, :regular) do
-    %{direction: direction, count: count} = settings
-    new_count = count + direction
-
-    %{settings | count: new_count}
+         do: LoggerManager.remove_backend(settings.log_path)
   end
 end
