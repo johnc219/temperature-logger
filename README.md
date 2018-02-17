@@ -1,5 +1,5 @@
 # temperature-logger
-Log ambient temperature readings in degrees Celsius.
+Log ambient temperature readings in degrees Celsius and Fahrenheit.
 
 Motivation:
 The ideal temperature while sleeping is between [60 and 67](https://sleep.org/articles/temperature-for-sleep/) degrees Fahrenheit. I am using this application to experimentally tune my heating systems (heater or thermostat settings) to the sweet spot. Of course, this application can be used for many other use cases where temperature logging is desired.
@@ -90,3 +90,27 @@ important to minimize the effects of radio frequency interference
 1. Navigate to `temperature_logger_umbrella/`
 1. Run `mix deps.get`
 1. Run `mix compile`
+
+## Extending to different boards
+If you are using a board other than the MSP430, you can implement your own microcontroller code. The Elixir app expects to receive UART messages every second. The message is expected to be a JSON string **with a `\n` at the end** in the following format:
+```
+{ "celsius": <Number>, "fahrenheit": <Number> }
+```
+The code must adhere to the following rules:
+- Baudrate of 9600 b/s
+- Must start sending data when a "O" is received
+- Must stop sending data when an "F" is received
+- When sending, data must be set at a period of 1 sec
+- The data must be sent in format described above
+
+**Caveat**
+
+There is no current option to specify the port in the TCP client API. You must invoke
+```TemperatureLogger.start_logging(TemperatureLogger, [port: <String>])
+```
+directly in `iex`.
+
+## Q&A
+>Why not just buy a thermometer?
+
+This application is to automate *logging* temperatures in addition to reading them.
