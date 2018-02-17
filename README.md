@@ -98,15 +98,16 @@ If you are using a board other than the MSP430, you can implement your own micro
 ```
 The code must adhere to the following rules:
 - Baudrate of 9600 b/s
-- Must start sending data when a "O" is received
+- Must start sending data when an "O" is received
 - Must stop sending data when an "F" is received
-- When sending, data must be set at a period of 1 sec
+- When sending, data must be sent at a period of 1 sec
 - The data must be sent in format described above
 
 **Caveat**
 
 There is no current option to specify the port in the TCP client API. You must invoke
-```TemperatureLogger.start_logging(TemperatureLogger, [port: <String>])
+```
+TemperatureLogger.start_logging(TemperatureLogger, [port: <String>])
 ```
 directly in `iex`.
 
