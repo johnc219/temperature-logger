@@ -78,27 +78,25 @@ defmodule TemperatureLoggerServer.Command do
   def run(command)
 
   def run({:enumerate}) do
-    {:ok, ports} = TemperatureLogger.enumerate(@temperature_logger_pid)
-
-    formatted =
-      Enum.map_join(ports, "\r\n", fn {port, metadata} ->
-        inspect(port) <> " => " <> inspect(metadata)
-      end)
-
-    {:ok, formatted <> "\r\n"}
+    {:ok, ports} = TemperatureLogger.enumerate(temperature_logger_pid())
+    {:ok, ports}
   end
 
   def run({:start, opts}) do
-    case TemperatureLogger.start_logging(@temperature_logger_pid, opts) do
+    case TemperatureLogger.start_logging(temperature_logger_pid(), opts) do
       :ok -> {:ok, "OK\r\n"}
       {:error, err} -> {:error, err}
     end
   end
 
   def run({:stop}) do
-    case TemperatureLogger.stop_logging(@temperature_logger_pid) do
+    case TemperatureLogger.stop_logging(temperature_logger_pid()) do
       :ok -> {:ok, "OK\r\n"}
       {:error, err} -> {:error, err}
     end
+  end
+
+  defp temperature_logger_pid do
+    @temperature_logger_pid
   end
 end

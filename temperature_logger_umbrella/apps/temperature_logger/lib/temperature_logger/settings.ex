@@ -47,7 +47,7 @@ defmodule TemperatureLogger.Settings do
     @default_period
   end
 
-  @spec generate(String.t(), pos_integer()) :: map()
+  @spec generate(String.t(), pos_integer()) :: {:ok, map()} | {:error, atom()}
   def generate(log_path, period) do
     case calculate_upper_limit(period) do
       {:ok, upper_limit} ->

@@ -2,7 +2,7 @@ defmodule TemperatureLogger.Application do
   use Application
 
   @moduledoc """
-  Documentation for TemperatureLogger.Application
+  Application entry point.
   """
 
   def start(_type, _args) do
