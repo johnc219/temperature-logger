@@ -11,7 +11,7 @@ defmodule TemperatureLoggerServer do
     # 1. `:binary` - receives data as binaries
     # 2. `packet: :line` - receives data line by line
     # 3. `active: false` - blocks on `:gen_tcp.recv/2 unitl data is available
-    # 4. `reuseaddr: true` - allows us to resuse teh address if listener crashes
+    # 4. `reuseaddr: true` - allows us to resuse the address if listener crashes
     options = [
       :binary,
       packet: :line,
